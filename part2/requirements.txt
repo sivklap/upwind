@@ -1,0 +1,5 @@
+boto3
+python-dotenv
+openai
+huggingface_hub
+transformers

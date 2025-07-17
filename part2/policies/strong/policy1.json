@@ -1,0 +1,13 @@
+{
+    "Version": "2022-10-17",
+    "Statement": [
+    {
+    "Effect": "Allow",
+    "Action": "s3:DeleteObject",
+    "Resource": "arn:aws:s3:::secure-bucket/*",
+    "Condition": {
+    "Bool": { "aws:MultiFactorAuthPresent": "true" }
+    }
+    }
+    ]
+}

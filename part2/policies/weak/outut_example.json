@@ -1,0 +1,13 @@
+{
+    "policy": {
+    "Version": "2022-10-17",
+    "Statement": [
+    {
+        "Effect": "Allow",
+        "Action": "*",
+        "Resource": "*"
+    }]
+    },
+        "classification": "Weak",
+        "reason": "This policy grants full unrestricted access to all resources and actions, posing a significant security risk."
+}

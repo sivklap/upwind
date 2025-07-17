@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem"
+        ],
+        "Resource": "arn:aws:dynamodb:us-east-1:123456789012:table/my-table",
+        "Condition": {
+          "StringEqualsIfExists": {
+            "aws:SourceIp": "192.0.2.0/24"
+          }
+        }
+      }
+    ]
+  }
+  
