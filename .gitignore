@@ -1,0 +1,13 @@
+# Ignore everything inside part2/.venv (Python virtual env)
+part2/.venv/
+part2/**/__pycache__/
+part2/.env
+part2/**/*.log
+part2/**/*.tmp
+part2/.vscode/
+
+# macOS junk
+.DS_Store
+
+# Ignore compiled C files in part1
+part1/*.dSYM/
