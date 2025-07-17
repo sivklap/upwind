@@ -9,5 +9,8 @@ part2/.vscode/
 # macOS junk
 .DS_Store
 
+#vscode
+.vscode/
+
 # Ignore compiled C files in part1
 part1/*.dSYM/
