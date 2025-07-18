@@ -28,6 +28,7 @@ sigset_t* get_uthread_sigset(void) { return &uthread_sigset; }
 // ===== Init Threading System =====
 int uthread_system_init(int quantum_usecs) {
     if (initialized || quantum_usecs <= 0 || quantum_usecs > 1000000) {
+        fprintf(stderr, "uthread_system_init: invalid input or already initialized\n");
         return -1;
     }
 
@@ -63,39 +64,46 @@ int uthread_system_init(int quantum_usecs) {
         return -1;
     }
 
+    printf("uthread_system_init: initialized with quantum = %d µs\n", quantum_usecs);
     return 0;
 }
 
 // ===== Create New Thread =====
 int uthread_create(uthread_entry entry_func) {
     if (!initialized || entry_func == NULL) {
+        fprintf(stderr, "uthread_create: not initialized or entry_func is NULL\n");
         return -1;
     }
 
     // Find an available TID
     int tid = -1;
     for (int i = 1; i < UTHREAD_MAX_THREADS; ++i) {
-        if (threads[i].state != READY &&
-            threads[i].state != RUNNING &&
-            threads[i].state != BLOCKED) {
+        if (threads[i].tid == -1) {
             tid = i;
             break;
         }
     }
 
-    if (tid == -1) return -1;
+    if (tid == -1) {
+        fprintf(stderr, "uthread_create: no available TID slots\n");
+        return -1;
+    }
 
     void* stack = malloc(UTHREAD_STACK_BYTES);
-    if (!stack) return -1;
+    if (!stack) {
+        fprintf(stderr, "uthread_create: malloc failed for thread %d\n", tid);
+        return -1;
+    }
 
     threads[tid].tid = tid;
     threads[tid].state = READY;
     threads[tid].entry = entry_func;
     threads[tid].stack = stack;
 
+    printf("uthread_create: creating thread %d\n", tid);
+
     if (sigsetjmp(threads[tid].context, 1) == 0) {
-        // Do nothing here: just store the context.
-        // We'll jump into trampoline later via siglongjmp.
+        printf("uthread_create: saved context for thread %d\n", tid);
         return tid;
     }
 
