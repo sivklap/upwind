@@ -18,6 +18,7 @@ static int initialized = 0;
 static struct itimerval timer;
 static sigset_t uthread_sigset;
 static int quantum_usec = 0;
+int sleep_table[UTHREAD_MAX_THREADS] = {0};
 
 // ===== Accessors for scheduler =====
 Thread* get_threads(void) { return threads; }
@@ -35,12 +36,22 @@ int uthread_system_init(int quantum_usecs) {
     initialized = 1;
     quantum_usec = quantum_usecs;
 
+    // Mark all thread slots as unused
+    for (int i = 0; i < UTHREAD_MAX_THREADS; ++i) {
+        threads[i].tid = -1;
+        threads[i].state = BLOCKED;
+        threads[i].entry = NULL;
+        threads[i].stack = NULL;
+    }
+
+    // Set up main thread (TID 0)
     threads[0].tid = 0;
     threads[0].state = RUNNING;
     threads[0].entry = NULL;
     threads[0].stack = NULL;
     current_tid = 0;
 
+    // Block SIGVTALRM when modifying thread states
     sigemptyset(&uthread_sigset);
     sigaddset(&uthread_sigset, SIGVTALRM);
 
@@ -103,10 +114,104 @@ int uthread_create(uthread_entry entry_func) {
     printf("uthread_create: creating thread %d\n", tid);
 
     if (sigsetjmp(threads[tid].context, 1) == 0) {
+        // Stack pointer and PC would be set when thread is launched
         printf("uthread_create: saved context for thread %d\n", tid);
         return tid;
     }
 
-    // Never reached during thread creation.
+    // This point is only reached when thread starts running
     return tid;
+}
+
+int uthread_exit(int tid) {
+    // Validate the TID
+    if (!initialized || tid < 0 || tid >= UTHREAD_MAX_THREADS || threads[tid].tid == -1) {
+        fprintf(stderr, "uthread_exit: invalid tid %d\n", tid);
+        return -1;
+    }
+
+    // If main thread is exiting, terminate the process
+    if (tid == 0) {
+        printf("uthread_exit: terminating main thread. Exiting process.\n");
+        exit(0);
+    }
+
+    // Free the stack if it was allocated
+    if (threads[tid].stack != NULL) {
+        free(threads[tid].stack);
+        threads[tid].stack = NULL;
+    }
+
+    // Clear thread data
+    threads[tid].tid = -1;
+    threads[tid].state = BLOCKED;
+    threads[tid].entry = NULL;
+    memset(&threads[tid].context, 0, sizeof(sigjmp_buf));
+
+    printf("uthread_exit: thread %d terminated\n", tid);
+    return 0;
+}
+
+int uthread_block(int tid) {
+    // Validate the TID
+    if (!initialized || tid < 0 || tid >= UTHREAD_MAX_THREADS || threads[tid].tid == -1) {
+        fprintf(stderr, "uthread_block: invalid tid %d\n", tid);
+        return -1;
+    }
+
+    // Main thread cannot be blocked
+    if (tid == 0) {
+        fprintf(stderr, "uthread_block: cannot block main thread (tid 0)\n");
+        return -1;
+    }
+
+    // Block the thread
+    threads[tid].state = BLOCKED;
+    printf("uthread_block: thread %d is now BLOCKED\n", tid);
+
+    // If the thread blocks itself, trigger scheduling
+    if (tid == current_tid) {
+        sigsetjmp(threads[tid].context, 1);
+        schedule(); // preemptive scheduling — switch to another thread
+    }
+
+    return 0;
+}
+
+int uthread_unblock(int tid) {
+    // Validate TID
+    if (!initialized || tid < 0 || tid >= UTHREAD_MAX_THREADS || threads[tid].tid == -1) {
+        fprintf(stderr, "uthread_unblock: invalid tid %d\n", tid);
+        return -1;
+    }
+
+    // Only unblock if the thread is currently BLOCKED
+    if (threads[tid].state != BLOCKED) {
+        printf("uthread_unblock: thread %d is not in BLOCKED state\n", tid);
+        return -1;
+    }
+
+    threads[tid].state = READY;
+    printf("uthread_unblock: thread %d is now READY\n", tid);
+    return 0;
+}
+
+int uthread_sleep_quantums(int num_quantums) {
+    // Validate input
+    if (!initialized || num_quantums <= 0 || current_tid == 0) {
+        fprintf(stderr, "uthread_sleep_quantums: invalid input or called from main thread\n");
+        return -1;
+    }
+
+    // Mark the thread as BLOCKED and set sleep duration
+    threads[current_tid].state = BLOCKED;
+    sleep_table[current_tid] = num_quantums;
+    printf("uthread_sleep_quantums: thread %d sleeping for %d quantums\n", current_tid, num_quantums);
+
+    // Yield control to another thread via scheduler
+    if (sigsetjmp(threads[current_tid].context, 1) == 0) {
+        schedule();
+    }
+
+    return 0;
 }

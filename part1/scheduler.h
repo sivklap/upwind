@@ -3,7 +3,7 @@
 
 #include "uthread.h"
 
-void schedule(int sig);
+void schedule();
 void enqueue_ready(int tid);
 int dequeue_ready(void);
 
