@@ -29,15 +29,13 @@ void thread_func2() {
 
 void thread_func3() {
     printf("[T3] started\n");
-
     for (int i = 0; i < 2; ++i) {
         printf("[T3] loop %d\n", i);
         for (volatile int j = 0; j < 100000000; ++j); // burn time
     }
-
     printf("[T3] exiting\n");
-    
-    uthread_exit(get_current_tid());
+
+    uthread_exit(get_current_tid()); 
 }
 
 int main() {
@@ -53,19 +51,16 @@ int main() {
 
     printf("main: created tid1=%d, tid2=%d, tid3=%d\n", tid1, tid2, tid3);
 
-    // Let threads run a bit — thread 2 should block itself
+    // Let timer take over — no manual schedule
+    // Give time for T2 to block itself
     for (volatile int i = 0; i < 300000000; ++i);
 
-    printf("main: manually calling schedule()\n");
-    schedule();
-
-    // Unblock thread 2
     printf("main: unblocking thread 2\n");
     uthread_unblock(tid2);
 
-    // Give time for all threads to complete
-    for (volatile int i = 0; i < 500000000; ++i);
+    // Let all threads run to completion
+    for (volatile int i = 0; i < 800000000; ++i);
 
-    printf("main: exiting\n");
-    uthread_exit(get_current_tid());  // main thread exits too
+    printf("main: exiting (done)\n");
+    return 0;
 }

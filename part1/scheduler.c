@@ -1,74 +1,138 @@
 #include "scheduler.h"
 #include "uthread.h"
+#include <stdlib.h>
 #include <signal.h>
 #include <setjmp.h>
 #include <stdio.h>
 
 #define QUEUE_SIZE UTHREAD_MAX_THREADS
 
-// ======== Simple Circular Queue for TIDs ========= //
+// ===== Ready Queue =====
 static int ready_queue[QUEUE_SIZE];
-static int front = 0, rear = 0;
-static int size = 0;
+static int front = 0, rear = 0, size = 0;
 
-// ========== Queue Utilities ========== //
+// ===== Enqueue Ready Thread =====
 void enqueue_ready(int tid) {
-    if (size >= QUEUE_SIZE) return;  // Queue full
+    if (size >= QUEUE_SIZE || tid < 0 || tid >= UTHREAD_MAX_THREADS)
+        return;
+
+    Thread* threads = get_threads();
+    if (threads[tid].tid == -1 || threads[tid].state != READY)
+        return;
+
     ready_queue[rear] = tid;
     rear = (rear + 1) % QUEUE_SIZE;
     size++;
 }
 
+
+// ===== Dequeue Next READY Thread =====
 int dequeue_ready() {
-    if (size == 0) return -1;
-    int tid = ready_queue[front];
-    front = (front + 1) % QUEUE_SIZE;
-    size--;
-    return tid;
+    Thread* threads = get_threads();
+
+    while (size > 0) {
+        int tid = ready_queue[front];
+        front = (front + 1) % QUEUE_SIZE;
+        size--;
+
+        // Skip invalid or dead threads
+        if (tid >= 0 && tid < UTHREAD_MAX_THREADS &&
+            threads[tid].tid != -1 &&
+            threads[tid].state == READY) {
+            return tid;
+        } else {
+            printf("[dequeue_ready] Skipped invalid/dead thread %d\n", tid);
+        }
+    }
+
+    return -1;
+}
+// ===== First-Time Thread Launcher =====
+void thread_bootstrap() {
+    sigset_t* block_set = get_uthread_sigset();
+    sigprocmask(SIG_UNBLOCK, block_set, NULL);
+
+    thread_func_wrapper();  // Call the thread's entry function
+
+    // Exit the thread if it returns
+    int tid = get_current_tid();
+    uthread_exit(tid);
 }
 
-// ========== Preemptive Scheduler ========== //
-void schedule() {
+// ===== Scheduler =====
+void schedule(int sig) {
+    (void)sig;
     sigset_t* block_set = get_uthread_sigset();
+    sigprocmask(SIG_BLOCK, block_set, NULL);
 
-    sigprocmask(SIG_BLOCK, block_set, NULL);  // block SIGVTALRM
-
+    int curr_tid = get_current_tid();
     Thread* threads = get_threads();
-    int current_tid = get_current_tid();
-    Thread* current = &threads[current_tid];
 
-    // Handle sleeping threads
-    extern int sleep_table[UTHREAD_MAX_THREADS];
-    for (int i = 1; i < UTHREAD_MAX_THREADS; ++i) {
-        if (threads[i].state == BLOCKED && sleep_table[i] > 0) {
+    // === Handle sleeping threads ===
+    for (int i = 0; i < UTHREAD_MAX_THREADS; i++) {
+        if (threads[i].tid != -1 && sleep_table[i] > 0 && threads[i].state == BLOCKED) {
             sleep_table[i]--;
             if (sleep_table[i] == 0) {
                 threads[i].state = READY;
                 enqueue_ready(i);
-                printf("schedule: thread %d woke up and moved to READY\n", i);
+                printf("[schedule] Thread %d woke up from sleep\n", i);
             }
         }
     }
 
-    // Save context of current thread
-    if (sigsetjmp(current->context, 1) == 0) {
-        if (current->state == RUNNING) {
-            current->state = READY;
-            enqueue_ready(current_tid);
-        }
-
-        int next_tid = dequeue_ready();
-        if (next_tid != -1) {
-            set_current_tid(next_tid);
-            threads[next_tid].state = RUNNING;
+    // === Save current thread context ===
+    if (threads[curr_tid].tid != -1) {
+        if (sigsetjmp(threads[curr_tid].context, 1) == 1) {
+            printf("[schedule] Resumed in thread %d\n", curr_tid);
             sigprocmask(SIG_UNBLOCK, block_set, NULL);
-            siglongjmp(threads[next_tid].context, 1);
+            return;
         }
 
-        // No READY threads — continue running current
-        set_current_tid(current_tid);
-        current->state = RUNNING;
+        threads[curr_tid].context_valid = 1;
+
+        if (threads[curr_tid].state == RUNNING) {
+            threads[curr_tid].state = READY;
+            enqueue_ready(curr_tid);
+            printf("[schedule] Thread %d moved to READY\n", curr_tid);
+        }
     }
 
+    // === Get next valid READY thread ===
+    int next_tid = -1;
+    do {
+        next_tid = dequeue_ready();
+    } while (next_tid != -1 && threads[next_tid].tid == -1);  // skip dead threads
+
+    if (next_tid == -1) {
+        fprintf(stderr, "[schedule] No thread to run, exiting\n");
+        exit(1);
+    }
+
+    set_current_tid(next_tid);
+    threads[next_tid].state = RUNNING;
+    printf("[schedule] Switching to thread %d (context_valid = %d)\n", next_tid, threads[next_tid].context_valid);
+
+    // === First-time run? ===
+    if (!threads[next_tid].context_valid) {
+        threads[next_tid].context_valid = 1;
+        if (next_tid == 0) {
+            printf("[schedule] Resuming main thread\n");
+            sigprocmask(SIG_UNBLOCK, block_set, NULL);
+            return;
+        }
+        sigprocmask(SIG_UNBLOCK, block_set, NULL);
+        thread_bootstrap();  // never returns
+    }
+
+    // === Resume saved context ===
     sigprocmask(SIG_UNBLOCK, block_set, NULL);
+
+    if (threads[next_tid].tid == -1) {
+    fprintf(stderr, "[schedule] FATAL: tried to resume dead thread %d\n", next_tid);
+    __builtin_trap();
+    }
+    siglongjmp(threads[next_tid].context, 1);
+
+    // Should never reach here
+    __builtin_trap();
 }

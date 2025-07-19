@@ -23,20 +23,25 @@ typedef void (*uthread_entry)(void);
 typedef enum { READY, RUNNING, BLOCKED } ThreadState;
 
 // Thread structure definition
+
 typedef struct {
     int tid;
     ThreadState state;
     uthread_entry entry;
     sigjmp_buf context;
     void* stack;
+    int context_valid;
 } Thread;
 
-// Accessors used by scheduler
-sigset_t* get_uthread_sigset(void);
+// Internal helpers used by scheduler.c
 Thread* get_threads(void);
 int get_current_tid(void);
 void set_current_tid(int tid);
+sigset_t* get_uthread_sigset(void);
+void thread_bootstrap(void);
+void thread_func_wrapper(void);
 
+extern int sleep_table[UTHREAD_MAX_THREADS];  
 /* ===========================
 Initialization & Management
 =========================== */
