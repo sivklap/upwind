@@ -56,13 +56,13 @@ def main():
                     model_result["match"] = match
                     model_result["reason"] = result.get("reason")
 
-                    print(f"    Classified as: {classification} | Match: {match}")
+                    print(f"Classified as: {classification} | Match: {match}")
                 else:
-                    print("    Warning: Model returned no result.")
+                    print("Warning: Model returned no result.")
             except Exception as e:
                 model_result["classification"] = "Error"
                 model_result["reason"] = str(e)
-                print(f"    Error during classification: {e}")
+                print(f"Error during classification: {e}")
 
             results.append(model_result)
 

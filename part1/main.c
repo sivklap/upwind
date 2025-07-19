@@ -36,6 +36,7 @@ void thread_func3() {
     }
 
     printf("[T3] exiting\n");
+    
     uthread_exit(get_current_tid());
 }
 
