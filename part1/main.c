@@ -51,7 +51,7 @@ void thread_func2() {
         printf("[T2] ERROR: block failed\n");
     }
 
-    // Continue work after being unblocked
+    // Continue work after being unblocked in the main
     for (int i = 0; i < 3; i++) {
         printf("[T2] Post-unblock work iteration %d\n", i);
         for (volatile int j = 0; j < 20000000; j++);
@@ -85,19 +85,19 @@ void thread_func4() {
 }
 
 int main() {
-    printf("=== COMPREHENSIVE Upwind Threading Library Test ===\n");
-    printf("Testing ALL API functions: create, exit, block, unblock, sleep\n\n");
+    printf("Upwind Threading Library Test\n");
+    printf("Testing API functions: create, exit, block, unblock, sleep\n\n");
     
     // TEST: uthread_system_init()
-    printf("[MAIN] Testing uthread_system_init(100000)...\n");
+    printf("[MAIN] Testing uthread_system_init(100000)\n");
     if (uthread_system_init(100000) < 0) {
         fprintf(stderr, "FAILED: uthread_system_init\n");
         return 1;
     }
-    printf("[MAIN] ✓ uthread_system_init() successful\n\n");
+    printf("[MAIN] uthread_system_init() successful\n");
 
-    // TEST: uthread_create() for multiple threads
-    printf("[MAIN] Testing uthread_create() for 4 threads...\n");
+    // TEST: uthread_create() multiple threads
+    printf("[MAIN] Testing uthread_create() for 4 threads\n");
     int tid1 = uthread_create(thread_func1);
     int tid2 = uthread_create(thread_func2);
     int tid3 = uthread_create(thread_func3);
@@ -107,69 +107,68 @@ int main() {
         fprintf(stderr, "FAILED: uthread_create\n");
         return 1;
     }
-    printf("[MAIN] ✓ All uthread_create() calls successful: T1=%d, T2=%d, T3=%d, T4=%d\n\n", 
+    printf("[MAIN] All uthread_create() calls successful: T1=%d, T2=%d, T3=%d, T4=%d\n\n", 
            tid1, tid2, tid3, tid4);
 
     // Let threads start running
-    printf("[MAIN] Letting threads start execution...\n");
+    printf("[MAIN] Letting threads start execution\n");
     for (volatile int i = 0; i < 150000000; i++);
 
     // TEST: uthread_unblock() - unblock T2 after it blocks itself
-    printf("\n[MAIN] Testing uthread_unblock(%d) to wake up T2...\n", tid2);
+    printf("\n[MAIN] Testing uthread_unblock(%d) to wake up T2\n", tid2);
     if (uthread_unblock(tid2) == 0) {
-        printf("[MAIN] ✓ uthread_unblock() successful\n");
+        printf("[MAIN] uthread_unblock() successful\n");
     } else {
-        printf("[MAIN] ✗ uthread_unblock() failed\n");
+        printf("[MAIN] uthread_unblock() failed\n");
     }
 
     // Let T2 continue after unblocking
-    printf("[MAIN] Allowing T2 to continue after unblock...\n");
+    printf("[MAIN] Allowing T2 to continue after unblock\n");
     for (volatile int i = 0; i < 200000000; i++);
 
     // TEST: uthread_exit() - terminate T3 early
-    printf("\n[MAIN] Testing uthread_exit(%d) to terminate T3 early...\n", tid3);
+    printf("\n[MAIN] Testing uthread_exit(%d) to terminate T3 early\n", tid3);
     if (uthread_exit(tid3) == 0) {
-        printf("[MAIN] ✓ uthread_exit() successful - T3 terminated\n");
+        printf("[MAIN] uthread_exit() successful - T3 terminated\n");
     } else {
-        printf("[MAIN] ✗ uthread_exit() failed\n");
+        printf("[MAIN] uthread_exit() failed\n");
     }
 
     // Continue main thread work (demonstrating preemption)
-    printf("\n[MAIN] Main thread continuing work (demonstrating preemption)...\n");
+    printf("\n[MAIN] Main thread continuing work (demonstrating preemption)\n");
     for (int i = 0; i < 3; i++) {
         printf("[MAIN] Main work iteration %d\n", i);
         for (volatile int j = 0; j < 60000000; j++);
     }
 
     // Let remaining threads finish
-    printf("\n[MAIN] Allowing remaining threads to complete...\n");
+    printf("\n[MAIN] Allowing remaining threads to complete\n");
     for (volatile int i = 0; i < 400000000; i++);
 
     // Test error cases
-    printf("\n[MAIN] Testing error conditions...\n");
+    printf("\n[MAIN] Testing error conditions\n");
     
     // Test invalid thread operations
     printf("[MAIN] Testing invalid operations (should fail):\n");
     printf("  - Blocking main thread (TID 0): %s\n", 
-           uthread_block(0) == -1 ? "✓ FAILED as expected" : "✗ Should have failed");
+           uthread_block(0) == -1 ? "FAILED as expected" : "Should have failed");
     printf("  - Sleep from main thread: %s\n", 
-           uthread_sleep_quantums(1) == -1 ? "✓ FAILED as expected" : "✗ Should have failed");
+           uthread_sleep_quantums(1) == -1 ? "FAILED as expected" : "Should have failed");
     printf("  - Exit invalid TID: %s\n", 
-           uthread_exit(99) == -1 ? "✓ FAILED as expected" : "✗ Should have failed");
+           uthread_exit(99) == -1 ? "FAILED as expected" : "Should have failed");
     printf("  - Unblock invalid TID: %s\n", 
-           uthread_unblock(99) == -1 ? "✓ FAILED as expected" : "✗ Should have failed");
+           uthread_unblock(99) == -1 ? "FAILED as expected" : "Should have failed");
 
     printf("\n=== API Function Test Results ===\n");
-    printf("✓ uthread_system_init() - Threading system initialized\n");
-    printf("✓ uthread_create() - 4 threads created successfully\n");
-    printf("✓ uthread_sleep_quantums() - T1 slept and woke up correctly\n");
-    printf("✓ uthread_block() - T2 blocked itself successfully\n");
-    printf("✓ uthread_unblock() - T2 was unblocked successfully\n");
-    printf("✓ uthread_exit() - T3 was terminated early successfully\n");
-    printf("✓ Error handling - Invalid operations rejected correctly\n");
-    printf("✓ Preemptive scheduling - Timer interrupts working\n");
-    printf("✓ Round-robin - All threads scheduled fairly\n");
+    printf("uthread_system_init() - Threading system initialized\n");
+    printf("uthread_create() - 4 threads created successfully\n");
+    printf("uthread_sleep_quantums() - T1 slept and woke up correctly\n");
+    printf("uthread_block() - T2 blocked itself successfully\n");
+    printf("uthread_unblock() - T2 was unblocked successfully\n");
+    printf("uthread_exit() - T3 was terminated early successfully\n");
+    printf("Error handling - Invalid operations rejected correctly\n");
+    printf("Preemptive scheduling - Timer interrupts working\n");
+    printf("Round-robin - All threads scheduled fairly\n");
 
-    printf("\n=== ALL API FUNCTIONS TESTED SUCCESSFULLY ===\n");
     return 0;
 }

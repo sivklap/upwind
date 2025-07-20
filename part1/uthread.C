@@ -1,5 +1,5 @@
 /*
- * User-Level Threading Library (Upwind Threads)
+ * User-Level Threading Library 
  * Implementation file
  */
 
@@ -13,7 +13,7 @@
 #include <setjmp.h>
 #include <stdio.h>
 
-// ===== Globals =====
+// Globals
 static Thread threads[UTHREAD_MAX_THREADS];
 static int current_tid = 0;
 static int initialized = 0;
@@ -22,11 +22,7 @@ static sigset_t uthread_sigset;
 static int quantum_usec = 0;
 int sleep_table[UTHREAD_MAX_THREADS] = {0};
 
-// Thread launch state
-static int new_thread_launch = 0;
-static int new_thread_id = -1;
-
-// ===== Accessor Functions =====
+// Accessor Functions
 Thread* get_threads(void) { return threads; }
 int get_current_tid(void) { return current_tid; }
 void set_current_tid(int tid) { current_tid = tid; }
@@ -145,7 +141,7 @@ int uthread_create(uthread_entry entry_func) {
     threads[tid].context_valid = 0; // Will be set when first run
     sleep_table[tid] = 0;
 
-    // Add to ready queue as specified
+    // Add to ready queue 
     enqueue_ready(tid);
     
     sigprocmask(SIG_UNBLOCK, &set, NULL);
@@ -164,10 +160,10 @@ int uthread_exit(int tid) {
         return -1;
     }
 
-    // Cannot terminate main thread as specified
+    // Special handling for main thread - exit entire process
     if (tid == 0) {
-        fprintf(stderr, "uthread_exit: cannot terminate main thread\n");
-        return -1;
+        printf("uthread_exit: terminating main thread - exiting process\n");
+        exit(0);
     }
 
     // Clean up thread resources
@@ -183,7 +179,7 @@ int uthread_exit(int tid) {
 
     printf("uthread_exit: thread %d terminated\n", tid);
 
-    // If terminating current thread, schedule next immediately
+    // If terminating current thread, schedule next 
     if (tid == current_tid) {
         schedule(0);
         __builtin_unreachable();
@@ -202,7 +198,7 @@ int uthread_block(int tid) {
         return -1;
     }
 
-    // Main thread cannot be blocked as specified
+    // Main thread cannot be blocked 
     if (tid == 0) {
         fprintf(stderr, "uthread_block: cannot block main thread\n");
         return -1;
@@ -229,6 +225,7 @@ int uthread_unblock(int tid) {
 
     // No effect if thread is already running or ready
     if (threads[tid].state == RUNNING || threads[tid].state == READY) {
+        printf("uthread_unblock: thread %d already running/ready - no effect\n", tid);
         return 0;
     }
 
@@ -239,6 +236,7 @@ int uthread_unblock(int tid) {
 
     // Move from BLOCKED to READY state and place at end of queue
     threads[tid].state = READY;
+    sleep_table[tid] = 0; // Clear any sleep timer
     enqueue_ready(tid);
     printf("uthread_unblock: thread %d moved to READY state\n", tid);
     

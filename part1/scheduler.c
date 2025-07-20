@@ -7,7 +7,7 @@
 
 #define QUEUE_SIZE UTHREAD_MAX_THREADS
 
-// ===== Ready Queue =====
+// Ready Queue
 static int ready_queue[QUEUE_SIZE];
 static int front = 0, rear = 0, size = 0;
 
@@ -15,7 +15,7 @@ static int front = 0, rear = 0, size = 0;
 static int new_thread_launch = 0;
 static int new_thread_id = -1;
 
-// ===== Enqueue Ready Thread =====
+// Enqueue Ready Thread 
 void enqueue_ready(int tid) {
     if (size >= QUEUE_SIZE || tid < 0 || tid >= UTHREAD_MAX_THREADS)
         return;
@@ -37,7 +37,7 @@ void enqueue_ready(int tid) {
     size++;
 }
 
-// ===== Dequeue Next READY Thread =====
+// Dequeue Next READY Thread
 int dequeue_ready() {
     Thread* threads = get_threads();
 
@@ -77,7 +77,7 @@ int remove_tid_from_ready_queue(int tid) {
     return 0;
 }
 
-// ===== Scheduler =====
+// Scheduler 
 void schedule(int sig) {
     (void)sig;
 
@@ -104,7 +104,6 @@ void schedule(int sig) {
         threads[curr_tid].tid != -1 && threads[curr_tid].context_valid) {
         
         if (sigsetjmp(threads[curr_tid].context, 1) == 1) {
-            // We just got resumed
             return;
         }
 
